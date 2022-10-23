@@ -1,9 +1,10 @@
 {
   "name": "vscode-wdio",
   "displayName": "vscode-wdio",
-  "description": "Webdriver.IO integration",
+  "description": "WebdriverIO test runner for vscode",
   "version": "0.0.1",
   "publisher": "murbani",
+  "repository": "https://github.com/marcellourbani/vscode-wdio",
   "keywords": [
     "test",
     "wdio",
@@ -32,6 +33,7 @@
     "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
+    "@types/glob": "^8.0.0",
     "@types/minimatch": "^5.1.2",
     "@types/mocha": "^10.0.0",
     "@types/node": "16.x",
@@ -40,6 +42,7 @@
     "@typescript-eslint/parser": "^5.38.1",
     "@vscode/test-electron": "^2.1.5",
     "eslint": "^8.24.0",
+    "glob": "^8.0.3",
     "mocha": "^10.0.0",
     "prettier": "^2.7.1",
     "prettier-eslint": "^15.0.1",

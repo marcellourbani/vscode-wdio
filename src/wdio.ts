@@ -1,5 +1,6 @@
 import {
   CancellationToken,
+  Range,
   TestController,
   TestItem,
   TestItemCollection,
@@ -86,43 +87,49 @@ const runConfiguration = async (
   parent: TestItem,
   run: TestRun
 ) => {
-  //   clearCollection(parent.children)
   const files = await runWdIOConfig(conf)
-  files.forEach((f) => {
-    const fileTest = getOrCreate(
-      ctrl,
-      parent.children,
-      `${conf.folder}_${f.name}`,
-      f.name
-    )
-    run.started(fileTest)
-    f.results.suites.forEach((s, i) => {
-      const suiteTest = getOrCreate(
+  await Promise.all(
+    files.map(async (f) => {
+      const fileTest = getOrCreate(
         ctrl,
-        fileTest.children,
-        `${conf.folder}_${f.name}_${i}`,
-        s.name
+        parent.children,
+        `${conf.folder}_${f.name}`,
+        f.name
       )
-      run.started(suiteTest)
-      s.tests.forEach((t, j) => {
-        // TODO: locations in file
-        const test = getOrCreate(
-          ctrl,
-          suiteTest.children,
-          `${conf.folder}_${f.name}_${s.name}_${i}_${j}`,
-          t.name,
-          Uri.parse(f.results.specs[0] || "")
-        )
-        // run.enqueued(test)
-        run.started(test)
-        if (t.state === "passed") run.passed(test, t.duration)
-        else {
-          const message = new TestMessage(t.error || "")
-          run.failed(test, message, t.duration)
-        }
-      })
+      await Promise.all(
+        f.results.suites.map(async (s, i) => {
+          const suiteTest = getOrCreate(
+            ctrl,
+            fileTest.children,
+            `${conf.folder}_${f.name}_${i}`,
+            s.name
+          )
+          await Promise.all(
+            s.tests.map((t, j) => {
+              const uri = Uri.parse(f.results.specs[0] || "")
+              const id = `${conf.folder}_${f.name}_${s.name}_${i}_${j}`
+              const test = getOrCreate(
+                ctrl,
+                suiteTest.children,
+                id,
+                t.name,
+                uri
+              )
+              // TODO: locations in file
+              test.range = new Range(j, 0, j, 1)
+              run.enqueued(test)
+              run.started(test)
+              if (t.state === "passed") run.passed(test, t.duration)
+              else {
+                const message = new TestMessage(t.error || "")
+                run.failed(test, message, t.duration)
+              }
+            })
+          )
+        })
+      )
     })
-  })
+  )
 }
 
 const configs = new Map<TestItem, WdIOConfiguration>()
@@ -138,17 +145,11 @@ const runHandler = async (
     // TODO: run individual folders/suites/tests
     const ctrl = getController()
     run = ctrl.createTestRun(request)
-    ctrl.items.forEach(async (test) => {
-      const conf = configs.get(test)
-      if (cancellation.isCancellationRequested || !conf) {
-        run.skipped(test)
-      } else {
-        run.appendOutput(`Running ${test.id}\r\n`)
-        run.started(test)
-        await runConfiguration(ctrl, conf, test, run)
-        run.appendOutput(`Completed ${test.id}\r\n`)
-      }
-    })
+    for (const [id, item] of ctrl.items) {
+      const conf = configs.get(item)
+      if (conf) await runConfiguration(ctrl, conf, item, run)
+    }
+    ctrl.items.forEach(async (test) => {})
   } catch (error) {
   } finally {
     //@ts-ignore
