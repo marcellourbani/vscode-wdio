@@ -1,4 +1,16 @@
-import { TestController, tests, Uri, window, workspace } from "vscode"
+import {
+  CancellationToken,
+  TestController,
+  TestItem,
+  TestItemCollection,
+  TestMessage,
+  TestRun,
+  TestRunProfileKind,
+  TestRunRequest,
+  tests,
+  Uri,
+  workspace
+} from "vscode"
 import { dirname, join } from "path"
 import { runCommand, runScript, validate } from "./util"
 import { packageSpec, wdIOConfigRaw, wdIOTestResult } from "./types"
@@ -55,10 +67,114 @@ const detect = async () => {
   const configs = await workspace.findFiles("**/wdio.conf.js")
   return Promise.all(configs.map(parseConfig))
 }
+const getOrCreate = (
+  ctrl: TestController,
+  c: TestItemCollection,
+  id: string,
+  name: string,
+  uri?: Uri
+) => {
+  const prev = c.get(id)
+  if (prev) return prev
+  const test = ctrl.createTestItem(id, name, uri)
+  c.add(test)
+  return test
+}
+const runConfiguration = async (
+  ctrl: TestController,
+  conf: WdIOConfiguration,
+  parent: TestItem,
+  run: TestRun
+) => {
+  //   clearCollection(parent.children)
+  const files = await runWdIOConfig(conf)
+  files.forEach((f) => {
+    const fileTest = getOrCreate(
+      ctrl,
+      parent.children,
+      `${conf.folder}_${f.name}`,
+      f.name
+    )
+    run.started(fileTest)
+    f.results.suites.forEach((s, i) => {
+      const suiteTest = getOrCreate(
+        ctrl,
+        fileTest.children,
+        `${conf.folder}_${f.name}_${i}`,
+        s.name
+      )
+      run.started(suiteTest)
+      s.tests.forEach((t, j) => {
+        // TODO: locations in file
+        const test = getOrCreate(
+          ctrl,
+          suiteTest.children,
+          `${conf.folder}_${f.name}_${s.name}_${i}_${j}`,
+          t.name,
+          Uri.parse(f.results.specs[0] || "")
+        )
+        // run.enqueued(test)
+        run.started(test)
+        if (t.state === "passed") run.passed(test, t.duration)
+        else {
+          const message = new TestMessage(t.error || "")
+          run.failed(test, message, t.duration)
+        }
+      })
+    })
+  })
+}
 
+const configs = new Map<TestItem, WdIOConfiguration>()
+const clearCollection = (c: TestItemCollection) =>
+  c.forEach((i) => c.delete(i.id))
+
+const runHandler = async (
+  request: TestRunRequest,
+  cancellation: CancellationToken
+) => {
+  let run: TestRun
+  try {
+    // TODO: run individual folders/suites/tests
+    const ctrl = getController()
+    run = ctrl.createTestRun(request)
+    ctrl.items.forEach(async (test) => {
+      const conf = configs.get(test)
+      if (cancellation.isCancellationRequested || !conf) {
+        run.skipped(test)
+      } else {
+        run.appendOutput(`Running ${test.id}\r\n`)
+        run.started(test)
+        await runConfiguration(ctrl, conf, test, run)
+        run.appendOutput(`Completed ${test.id}\r\n`)
+      }
+    })
+  } catch (error) {
+  } finally {
+    //@ts-ignore
+    run?.end()
+  }
+}
+const loadconfigurations = async (ctrl: TestController) => {
+  const configurations = await detect()
+  for (const conf of configurations) {
+    const item = ctrl.createTestItem(conf.folder, conf.name)
+    ctrl.items.add(item)
+    configs.set(item, conf)
+  }
+}
 class TestRunner {
   private static instance: TestRunner
   readonly ctrl = tests.createTestController("WDIO", "Webdriver.IO")
+  constructor() {
+    this.ctrl.createRunProfile(
+      "Run WdIO tests",
+      TestRunProfileKind.Run,
+      runHandler,
+      true
+    )
+    loadconfigurations(this.ctrl)
+  }
 
   public static get() {
     if (!TestRunner.instance) TestRunner.instance = new TestRunner()
@@ -68,19 +184,7 @@ class TestRunner {
 
 export const getController = () => TestRunner.get().ctrl
 
-const loadTests = (ctrl: TestController, uri: Uri) => {
-  const existing = ctrl.items.get(uri.toString())
-  if (existing) return
-  const file = ctrl.createTestItem(
-    uri.toString(),
-    uri.path.split("/").pop()!,
-    uri
-  )
-  file.canResolveChildren = true
-  ctrl.items.add(file)
-}
-
-const runConfiguration2 = async (conf: WdIOConfiguration) => {
+const runWdIOConfig = async (conf: WdIOConfiguration) => {
   const folder = `wdiotests_${generate()}`
   const tmpDir = mkdtempSync(join(tmpdir(), folder))
   const modname = conf.configFile.fsPath.replace(/\.js$/, "")
@@ -104,31 +208,7 @@ const runConfiguration2 = async (conf: WdIOConfiguration) => {
         return { name, results }
       })
     return files
-  } catch (error) {
-    console.log(error)
   } finally {
     rmSync(tmpDir, { recursive: true })
-  }
-}
-
-const runConfiguration = async (
-  ctrl: TestController,
-  conf: WdIOConfiguration
-) => {
-  const files = await runConfiguration2(conf)
-}
-
-export const runTests = async () => {
-  try {
-    const ctrl = getController()
-    const configurations = await detect()
-    for (const conf of configurations) {
-      await runConfiguration(ctrl, conf)
-    }
-    window.showInformationMessage(
-      `Test run completed, results available in the testing pane`
-    )
-  } catch (error) {
-    window.showErrorMessage(`Error: ${error}`)
   }
 }

@@ -20,14 +20,6 @@
     "workspaceContains:**/wdio.conf.js"
   ],
   "main": "./dist/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "vscode-wdio.runTests",
-        "title": "Run webdriver tests"
-      }
-    ]
-  },
   "scripts": {
     "vscode:prepublish": "npm run package",
     "compile": "webpack",
