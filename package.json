@@ -60,6 +60,7 @@
     "fp-ts": "^2.13.1",
     "io-ts": "^2.2.19",
     "io-ts-reporters": "^2.0.1",
-    "minimatch": "^5.1.0"
+    "minimatch": "^5.1.0",
+    "short-uuid": "^4.2.2"
   }
 }
