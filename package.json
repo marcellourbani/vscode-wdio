@@ -18,7 +18,8 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:**/wdio.conf.js"
+    "workspaceContains:**/wdio.conf.js",
+    "onStartupFinished"
   ],
   "main": "./dist/extension.js",
   "scripts": {

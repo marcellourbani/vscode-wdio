@@ -10,6 +10,7 @@ import {
   TestRunRequest,
   tests,
   Uri,
+  window,
   workspace
 } from "vscode"
 import { dirname, join } from "path"
@@ -151,6 +152,8 @@ const runHandler = async (
     }
     ctrl.items.forEach(async (test) => {})
   } catch (error) {
+    //@ts-ignore
+    window.showErrorMessage(`${error?.message}`)
   } finally {
     //@ts-ignore
     run?.end()
@@ -163,6 +166,13 @@ const loadconfigurations = async (ctrl: TestController) => {
     ctrl.items.add(item)
     configs.set(item, conf)
   }
+  return configurations
+}
+const checkjsonReporter = (configurations: WdIOConfiguration[]) => {
+  if (configurations.find((c) => !c.hasJsonReporter))
+    window.showWarningMessage(
+      "One or more folders are missing wdio-json-reporter. WDIO tests might fail running"
+    )
 }
 class TestRunner {
   private static instance: TestRunner
@@ -174,7 +184,7 @@ class TestRunner {
       runHandler,
       true
     )
-    loadconfigurations(this.ctrl)
+    loadconfigurations(this.ctrl).then(checkjsonReporter)
   }
 
   public static get() {
@@ -184,6 +194,20 @@ class TestRunner {
 }
 
 export const getController = () => TestRunner.get().ctrl
+
+const hasStderr = (x: unknown): x is { stderr: string } =>
+  !!x &&
+  typeof x === "object" &&
+  "stderr" in x &&
+  typeof (x as any).stderr === "string"
+
+const reporterMissing = (e: unknown) => {
+  if (!hasStderr(e)) return
+  if (e.stderr.match(/Error: Couldn't find plugin "json" reporter/))
+    throw new Error(
+      "WDIO Json reporter not installed please add @wdio/json-reporter to the relevant package.json and install it"
+    )
+}
 
 const runWdIOConfig = async (conf: WdIOConfiguration) => {
   const folder = `wdiotests_${generate()}`
@@ -200,6 +224,7 @@ const runWdIOConfig = async (conf: WdIOConfiguration) => {
       await runCommand(`npx wdio run ${dummyfile} --headless`, conf.folder)
     } catch (error) {
       console.log(error)
+      reporterMissing(error)
     }
     const files = readdirSync(tmpDir)
       .filter((f) => f.match(/results-.*\.json/))

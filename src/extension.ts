@@ -1,4 +1,4 @@
-import { commands, ExtensionContext, window, Disposable } from "vscode"
+import { ExtensionContext, Disposable } from "vscode"
 import { getController } from "./wdio"
 
 export function activate(context: ExtensionContext) {
