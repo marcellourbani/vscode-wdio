@@ -22,3 +22,6 @@ export const runScript = (source: string, cwd?: string) => {
   })
   return stdout
 }
+
+export const isDefined = <T>(x: T | undefined): x is T =>
+  typeof x !== "undefined"

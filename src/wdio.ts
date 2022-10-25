@@ -14,7 +14,7 @@ import {
   workspace
 } from "vscode"
 import { dirname, join } from "path"
-import { runCommand, runScript, validate } from "./util"
+import { isDefined, runCommand, runScript, validate } from "./util"
 import { packageSpec, wdIOConfigRaw, wdIOTestResult } from "./types"
 import {
   readdirSync,
@@ -42,6 +42,11 @@ export interface WdIOConfiguration {
   specs: string[]
   exclude: string[]
   hasJsonReporter: boolean
+}
+
+const runonTestTree = (root: TestItem, cb: (i: TestItem) => unknown) => {
+  cb(root)
+  for (const i of root.children) runonTestTree(i[1], cb)
 }
 
 const parseConfig = async (configFile: Uri): Promise<WdIOConfiguration> => {
@@ -88,6 +93,8 @@ const runConfiguration = async (
   parent: TestItem,
   run: TestRun
 ) => {
+  run.started(parent)
+  runonTestTree(parent, (k) => run.started(k))
   const files = await runWdIOConfig(conf)
   await Promise.all(
     files.map(async (f) => {
@@ -146,11 +153,17 @@ const runHandler = async (
     // TODO: run individual folders/suites/tests
     const ctrl = getController()
     run = ctrl.createTestRun(request)
-    for (const [id, item] of ctrl.items) {
-      const conf = configs.get(item)
-      if (conf) await runConfiguration(ctrl, conf, item, run)
-    }
-    ctrl.items.forEach(async (test) => {})
+    const rconfigs = [...ctrl.items]
+      .map((i) => {
+        const config = configs.get(i[1])
+        if (config) return { item: i[1], config }
+      })
+      .filter(isDefined)
+    rconfigs.forEach((c) => runonTestTree(c.item, (k) => run.enqueued(k)))
+    // run.enqueued(parent)
+    for (const entry of rconfigs)
+      await runConfiguration(ctrl, entry.config!, entry.item, run)
+    // for (const entry of rconfigs) run.passed(entry.item)
   } catch (error) {
     //@ts-ignore
     window.showErrorMessage(`${error?.message}`)
