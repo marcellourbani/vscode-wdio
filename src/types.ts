@@ -42,3 +42,7 @@ export const wdIOTestResult = t.type({
 export type WdIOTest = t.TypeOf<typeof wdIOTest>
 export type WdIOTestSuite = t.TypeOf<typeof wdIOTestSuite>
 export type WdIOTestResult = t.TypeOf<typeof wdIOTestResult>
+export interface WdIOTestFile {
+  name: string
+  results: WdIOTestResult
+}

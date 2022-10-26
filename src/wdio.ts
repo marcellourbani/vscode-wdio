@@ -1,10 +1,7 @@
 import {
   CancellationToken,
-  Range,
   TestController,
   TestItem,
-  TestItemCollection,
-  TestMessage,
   TestRun,
   TestRunProfileKind,
   TestRunRequest,
@@ -14,17 +11,16 @@ import {
   workspace
 } from "vscode"
 import { dirname, join } from "path"
-import { isDefined, runCommand, runScript, validate } from "./util"
-import { packageSpec, wdIOConfigRaw, wdIOTestResult } from "./types"
 import {
-  readdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-  readFileSync
-} from "fs"
-import { tmpdir } from "os"
-import { generate } from "short-uuid"
+  hasStderr,
+  isDefined,
+  removeMissing,
+  runonTestTree,
+  runScript,
+  validate
+} from "./util"
+import { packageSpec, wdIOConfigRaw } from "./types"
+import { runMochaConfiguration } from "./wdio_mocha"
 
 const readpackage = async (config: Uri) => {
   const folder = dirname(config.path)
@@ -42,11 +38,6 @@ export interface WdIOConfiguration {
   specs: string[]
   exclude: string[]
   hasJsonReporter: boolean
-}
-
-const runonTestTree = (root: TestItem, cb: (i: TestItem) => unknown) => {
-  cb(root)
-  for (const i of root.children) runonTestTree(i[1], cb)
 }
 
 const parseConfig = async (configFile: Uri): Promise<WdIOConfiguration> => {
@@ -74,75 +65,8 @@ const detect = async () => {
   const configs = await workspace.findFiles("**/wdio.conf.js")
   return Promise.all(configs.map(parseConfig))
 }
-const getOrCreate = (
-  ctrl: TestController,
-  c: TestItemCollection,
-  id: string,
-  name: string,
-  uri?: Uri
-) => {
-  const prev = c.get(id)
-  if (prev) return prev
-  const test = ctrl.createTestItem(id, name, uri)
-  c.add(test)
-  return test
-}
-const runConfiguration = async (
-  ctrl: TestController,
-  conf: WdIOConfiguration,
-  parent: TestItem,
-  run: TestRun
-) => {
-  run.started(parent)
-  runonTestTree(parent, (k) => run.started(k))
-  const files = await runWdIOConfig(conf)
-  await Promise.all(
-    files.map(async (f) => {
-      const fileTest = getOrCreate(
-        ctrl,
-        parent.children,
-        `${conf.folder}_${f.name}`,
-        f.name
-      )
-      await Promise.all(
-        f.results.suites.map(async (s, i) => {
-          const suiteTest = getOrCreate(
-            ctrl,
-            fileTest.children,
-            `${conf.folder}_${f.name}_${i}`,
-            s.name
-          )
-          await Promise.all(
-            s.tests.map((t, j) => {
-              const uri = Uri.parse(f.results.specs[0] || "")
-              const id = `${conf.folder}_${f.name}_${s.name}_${i}_${j}`
-              const test = getOrCreate(
-                ctrl,
-                suiteTest.children,
-                id,
-                t.name,
-                uri
-              )
-              // TODO: locations in file
-              test.range = new Range(j, 0, j, 1)
-              run.enqueued(test)
-              run.started(test)
-              if (t.state === "passed") run.passed(test, t.duration)
-              else {
-                const message = new TestMessage(t.error || "")
-                run.failed(test, message, t.duration)
-              }
-            })
-          )
-        })
-      )
-    })
-  )
-}
 
 const configs = new Map<TestItem, WdIOConfiguration>()
-const clearCollection = (c: TestItemCollection) =>
-  c.forEach((i) => c.delete(i.id))
 
 const runHandler = async (
   request: TestRunRequest,
@@ -150,7 +74,6 @@ const runHandler = async (
 ) => {
   let run: TestRun
   try {
-    // TODO: run individual folders/suites/tests
     const ctrl = getController()
     run = ctrl.createTestRun(request)
     const rconfigs = [...ctrl.items]
@@ -160,10 +83,16 @@ const runHandler = async (
       })
       .filter(isDefined)
     rconfigs.forEach((c) => runonTestTree(c.item, (k) => run.enqueued(k)))
-    // run.enqueued(parent)
+    const labels = rconfigs.map((r) => r.item.label)
+    removeMissing(ctrl.items, labels)
+
     for (const entry of rconfigs)
-      await runConfiguration(ctrl, entry.config!, entry.item, run)
-    // for (const entry of rconfigs) run.passed(entry.item)
+      if (entry.config.framework === "cucumber") {
+        window.showErrorMessage("Cucumber tests not supported yet")
+        runonTestTree(entry.item, (k) => run.skipped(k))
+      } else if (cancellation.isCancellationRequested)
+        runonTestTree(entry.item, (k) => run.skipped(k))
+      else await runMochaConfiguration(ctrl, entry.config!, entry.item, run)
   } catch (error) {
     //@ts-ignore
     window.showErrorMessage(`${error?.message}`)
@@ -207,47 +136,3 @@ class TestRunner {
 }
 
 export const getController = () => TestRunner.get().ctrl
-
-const hasStderr = (x: unknown): x is { stderr: string } =>
-  !!x &&
-  typeof x === "object" &&
-  "stderr" in x &&
-  typeof (x as any).stderr === "string"
-
-const reporterMissing = (e: unknown) => {
-  if (!hasStderr(e)) return
-  if (e.stderr.match(/Error: Couldn't find plugin "json" reporter/))
-    throw new Error(
-      "WDIO Json reporter not installed please add @wdio/json-reporter to the relevant package.json and install it"
-    )
-}
-
-const runWdIOConfig = async (conf: WdIOConfiguration) => {
-  const folder = `wdiotests_${generate()}`
-  const tmpDir = mkdtempSync(join(tmpdir(), folder))
-  const modname = conf.configFile.fsPath.replace(/\.js$/, "")
-  const script = `const {config} = require( "${modname}")
-    // config.mochaOpts = {...config.mochaOpts,dryRun:true}
-    config.reporters = [['json',{ outputDir: '${tmpDir}' ,outputFileFormat: opts => \`results-\${opts.cid}.json\`}]],
-    exports.config = config`
-  try {
-    const dummyfile = join(tmpDir, "wdio-wrapper.js")
-    writeFileSync(dummyfile, script)
-    try {
-      await runCommand(`npx wdio run ${dummyfile} --headless`, conf.folder)
-    } catch (error) {
-      console.log(error)
-      reporterMissing(error)
-    }
-    const files = readdirSync(tmpDir)
-      .filter((f) => f.match(/results-.*\.json/))
-      .map((name) => {
-        const raw = JSON.parse(readFileSync(join(tmpDir, name)).toString())
-        const results = validate(wdIOTestResult, raw)
-        return { name, results }
-      })
-    return files
-  } finally {
-    rmSync(tmpDir, { recursive: true })
-  }
-}

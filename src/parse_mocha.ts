@@ -1,11 +1,11 @@
 import { parse } from "@babel/parser"
 import { CallExpression, Node } from "@babel/types"
 
-const callTo = (s: Node, functionName: string): CallExpression | undefined =>
+const callTo = (s: Node, functionPattern: string): CallExpression | undefined =>
   s.type === "ExpressionStatement" &&
   s.expression.type === "CallExpression" &&
   s.expression.callee.type === "Identifier" &&
-  s.expression.callee.name === functionName
+  s.expression.callee.name.match(functionPattern)
     ? s.expression
     : undefined
 
@@ -33,7 +33,7 @@ const parseSuite = (s: CallExpression) => {
   if (rawcb?.body.type !== "BlockStatement") return
   const tests = []
   for (const node of rawcb.body.body) {
-    const testcall = callTo(node, "it")
+    const testcall = callTo(node, "it|test")
     if (testcall) {
       const test = parseStatement(testcall)
       if (test) tests.push(test)
@@ -47,7 +47,7 @@ export const extractMochaTests = (source: string) => {
   console.log(tree)
   const suites = []
   for (const node of tree.program.body) {
-    const suitecall = callTo(node, "describe")
+    const suitecall = callTo(node, "describe|suite")
     if (suitecall) {
       const suite = parseSuite(suitecall)
       if (suite) suites.push(suite)

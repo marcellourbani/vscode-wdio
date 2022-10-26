@@ -1,12 +1,12 @@
 # WDIO integration for visual studio code
 
-under construction
-alpha at best, got it to work with a single project - use at your own risk
+Runs [Webdriver.IO](https://webdriver.io/) tests in vscode native test UI
 
-## Features
+tested with Mocha, should also work with Jasmine
+Cucumber is not supported at the moment
 
-integrates with vscode native test UI
+![image](https://user-images.githubusercontent.com/2453277/197976140-e049bd69-23bb-42fb-8f99-3197b64d5a88.png)
 
 ## Requirements
 
-## Extension Settings
+Assumes the WDIO JSON reporter [wdio-json-reporter](https://www.npmjs.com/package/wdio-json-reporter) is installed in the target project
