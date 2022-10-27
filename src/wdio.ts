@@ -12,7 +12,7 @@ import {
 } from "vscode"
 import { dirname, join } from "path"
 import {
-  hasStderr,
+  hasMessage,
   isDefined,
   removeMissing,
   runonTestTree,
@@ -23,7 +23,7 @@ import { packageSpec, wdIOConfigRaw } from "./types"
 import { runMochaConfiguration } from "./wdio_mocha"
 
 const readpackage = async (config: Uri) => {
-  const folder = dirname(config.path)
+  const folder = dirname(config.fsPath)
   const packageUri = config.with({ path: join(folder, "package.json") })
   const raw = await workspace.fs.readFile(packageUri)
   const packagej = JSON.parse(raw.toString())
@@ -102,13 +102,22 @@ const runHandler = async (
   }
 }
 const loadconfigurations = async (ctrl: TestController) => {
-  const configurations = await detect()
-  for (const conf of configurations) {
-    const item = ctrl.createTestItem(conf.folder, conf.name)
-    ctrl.items.add(item)
-    configs.set(item, conf)
+  try {
+    const configurations = await detect()
+    for (const conf of configurations) {
+      const item = ctrl.createTestItem(conf.folder, conf.name)
+      ctrl.items.add(item)
+      configs.set(item, conf)
+    }
+    checkjsonReporter(configurations)
+    return configurations
+  } catch (error) {
+    window.showErrorMessage(
+      `failed to start WDIO extension:${
+        hasMessage(error) ? error.message : error
+      }`
+    )
   }
-  return configurations
 }
 const checkjsonReporter = (configurations: WdIOConfiguration[]) => {
   if (configurations.find((c) => !c.hasJsonReporter))
@@ -126,7 +135,7 @@ class TestRunner {
       runHandler,
       true
     )
-    loadconfigurations(this.ctrl).then(checkjsonReporter)
+    loadconfigurations(this.ctrl)
   }
 
   public static get() {

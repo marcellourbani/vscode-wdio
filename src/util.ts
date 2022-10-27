@@ -16,12 +16,9 @@ export const runCommand = (cmd: string, cwd?: string) =>
   promisify(exec)(cmd, { cwd })
 
 export const runScript = (source: string, cwd?: string) => {
-  const { stdout } = spawnSync("node", ["-"], {
-    input: source,
-    cwd,
-    encoding: "utf-8"
-  })
-  return stdout
+  const input = source.replace(/\\/g, "\\\\")
+  const res = spawnSync("node", ["-"], { input, cwd, encoding: "utf-8" })
+  return res.stdout
 }
 
 export const isDefined = <T>(x: T | undefined): x is T =>

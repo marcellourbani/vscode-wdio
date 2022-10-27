@@ -26,7 +26,6 @@ import {
 } from "./types"
 import {
   getOrCreate,
-  hasMessage,
   hasStderr,
   removeMissing,
   removeMissingTests,
@@ -69,10 +68,15 @@ const reporterMissing = (e: unknown) => {
 const runWdIOConfig = async (conf: WdIOConfiguration) => {
   const folder = `wdiotests_${generate()}`
   const tmpDir = mkdtempSync(join(tmpdir(), folder))
-  const modname = conf.configFile.fsPath.replace(/\.js$/, "")
+  const modname = conf.configFile.fsPath
+    .replace(/\.js$/, "")
+    .replace(/\\/g, "/")
   const script = `const {config} = require( "${modname}")
       // config.mochaOpts = {...config.mochaOpts,dryRun:true}
-      config.reporters = [['json',{ outputDir: '${tmpDir}' ,outputFileFormat: opts => \`results-\${opts.cid}.json\`}]],
+      config.reporters = [['json',{ outputDir: '${tmpDir.replace(
+        /\\/g,
+        "/"
+      )}' ,outputFileFormat: opts => \`results-\${opts.cid}.json\`}]],
       exports.config = config`
   try {
     const dummyfile = join(tmpDir, "wdio-wrapper.js")
@@ -162,7 +166,7 @@ export const processFile = async (
   file: MochaTestFile
 ) => {
   const id = `${parent.id}_${file.name}`
-  const uri = Uri.parse(file.results.specs[0] || "")
+  const uri = Uri.parse("file://").with({ path: file.results.specs[0] || "" })
   const fileTest = getOrCreate(ctrl, parent.children, id, file.name)
   const labels = file.results.suites.map((s) => s.name)
   removeMissing(fileTest.children, labels)
