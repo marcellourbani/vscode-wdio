@@ -5,6 +5,7 @@ import { exec, spawnSync } from "child_process"
 import reporter from "io-ts-reporters"
 import { promisify } from "util"
 import { TestController, TestItem, TestItemCollection, Uri } from "vscode"
+import { sep } from "path"
 
 export const validate = <A>(d: Decoder<unknown, A>, x: unknown): A => {
   const decoded = d.decode(x)
@@ -14,6 +15,9 @@ export const validate = <A>(d: Decoder<unknown, A>, x: unknown): A => {
 
 export const runCommand = (cmd: string, cwd?: string) =>
   promisify(exec)(cmd, { cwd })
+
+export const normalizePath = (s: string) =>
+  sep === "/" ? s : s.replace(/\\/g, "/")
 
 export const runScript = (source: string, cwd?: string) => {
   const input = source.replace(/\\/g, "\\\\")

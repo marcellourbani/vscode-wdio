@@ -14,7 +14,9 @@ import {
   TestRun,
   Uri,
   Range,
-  TestMessage
+  TestMessage,
+  window,
+  MarkdownString
 } from "vscode"
 import { extractMochaTests } from "./parse_mocha"
 import {
@@ -27,6 +29,7 @@ import {
 import {
   getOrCreate,
   hasStderr,
+  normalizePath,
   removeMissing,
   removeMissingTests,
   runCommand,
@@ -34,6 +37,7 @@ import {
   validate
 } from "./util"
 import { WdIOConfiguration } from "./wdio"
+import * as ansiRegex from "ansi-regex"
 
 interface MochaTest extends WdIOTest {
   range?: Range
@@ -68,14 +72,11 @@ const reporterMissing = (e: unknown) => {
 const runWdIOConfig = async (conf: WdIOConfiguration) => {
   const folder = `wdiotests_${generate()}`
   const tmpDir = mkdtempSync(join(tmpdir(), folder))
-  const modname = conf.configFile.fsPath
-    .replace(/\.js$/, "")
-    .replace(/\\/g, "/")
+  const modname = normalizePath(conf.configFile.fsPath.replace(/\.js$/, ""))
   const script = `const {config} = require( "${modname}")
       // config.mochaOpts = {...config.mochaOpts,dryRun:true}
-      config.reporters = [['json',{ outputDir: '${tmpDir.replace(
-        /\\/g,
-        "/"
+      config.reporters = [['json',{ outputDir: '${normalizePath(
+        tmpDir
       )}' ,outputFileFormat: opts => \`results-\${opts.cid}.json\`}]],
       exports.config = config`
   try {
@@ -134,7 +135,7 @@ export const processTest = async (
   run.started(test)
   if (mtest.state === "passed") run.passed(test, mtest.duration)
   else {
-    const message = new TestMessage(mtest.error || "")
+    const message = new TestMessage(mtest.error?.replace(ansiRegex(), "") || "")
     run.failed(test, message, mtest.duration)
   }
   return test
@@ -166,8 +167,9 @@ export const processFile = async (
   file: MochaTestFile
 ) => {
   const id = `${parent.id}_${file.name}`
-  const uri = Uri.parse("file://").with({ path: file.results.specs[0] || "" })
-  const fileTest = getOrCreate(ctrl, parent.children, id, file.name)
+  const path = normalizePath(file.results.specs[0] || "")
+  const uri = Uri.parse("file://").with({ path })
+  const fileTest = getOrCreate(ctrl, parent.children, id, file.name, uri)
   const labels = file.results.suites.map((s) => s.name)
   removeMissing(fileTest.children, labels)
   const suites = await Promise.all(
