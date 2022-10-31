@@ -6,7 +6,7 @@ import {
   rmSync
 } from "fs"
 import { tmpdir } from "os"
-import { join } from "path"
+import { join, basename } from "path"
 import { generate } from "short-uuid"
 import {
   TestController,
@@ -14,9 +14,7 @@ import {
   TestRun,
   Uri,
   Range,
-  TestMessage,
-  window,
-  MarkdownString
+  TestMessage
 } from "vscode"
 import { extractMochaTests } from "./parse_mocha"
 import {
@@ -29,6 +27,7 @@ import {
 import {
   getOrCreate,
   hasStderr,
+  isDefined,
   normalizePath,
   removeMissing,
   removeMissingTests,
@@ -44,6 +43,7 @@ interface MochaTest extends WdIOTest {
 }
 interface MochaTestSuite extends WdIOTestSuite {
   tests: MochaTest[]
+  range?: Range
 }
 interface MochaTestResults extends WdIOTestResult {
   suites: MochaTestSuite[]
@@ -110,12 +110,16 @@ const convertFile = ({ results, name }: WdIOTestFile): MochaTestFile => {
   const suites = extractMochaTests(source)
   if (!checkTestLengths(suites, results.suites)) return { name, results }
   const msuites = results.suites.map((suite, i) => {
+    const line = suites[i].line
+    const range = isDefined(line)
+      ? new Range(line - 1, 0, line - 1, 1)
+      : undefined
     const tests = suite.tests.map((test, j) => {
       const line = suites[i]?.tests[j].start?.line
       if (line) return { ...test, range: new Range(line - 1, 0, line - 1, 1) }
       return test
     })
-    return { ...suite, tests }
+    return { ...suite, range, tests }
   })
   return { name, results: { ...results, suites: msuites } }
 }
@@ -150,7 +154,8 @@ export const processSuite = async (
   uri: Uri
 ) => {
   const id = `${parent.id}_${suiteindex}`
-  const suiteTest = getOrCreate(ctrl, parent.children, id, suite.name)
+  const suiteTest = getOrCreate(ctrl, parent.children, id, suite.name, uri)
+  suiteTest.range = suite.range
   const labels = suite.tests.map((t) => t.name)
   removeMissing(suiteTest.children, labels)
   const tests = await Promise.all(
@@ -169,7 +174,7 @@ export const processFile = async (
   const id = `${parent.id}_${file.name}`
   const path = normalizePath(file.results.specs[0] || "")
   const uri = Uri.parse("file://").with({ path })
-  const fileTest = getOrCreate(ctrl, parent.children, id, file.name, uri)
+  const fileTest = getOrCreate(ctrl, parent.children, id, basename(path), uri)
   const labels = file.results.suites.map((s) => s.name)
   removeMissing(fileTest.children, labels)
   const suites = await Promise.all(

@@ -39,7 +39,7 @@ const parseSuite = (s: CallExpression) => {
       if (test) tests.push(test)
     }
   }
-  return { title, tests }
+  return { title, line: s.loc?.start.line, tests }
 }
 
 export const extractMochaTests = (source: string) => {
