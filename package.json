@@ -2,7 +2,7 @@
   "name": "vscode-wdio",
   "displayName": "vscode-wdio",
   "description": "WebdriverIO test runner for vscode",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "publisher": "murbani",
   "repository": "https://github.com/marcellourbani/vscode-wdio",
   "keywords": [
