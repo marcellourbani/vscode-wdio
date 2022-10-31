@@ -1,6 +1,6 @@
 {
   "name": "vscode-wdio",
-  "displayName": "vscode-wdio",
+  "displayName": "WebdriverIO test runner",
   "description": "WebdriverIO test runner for vscode",
   "version": "0.0.4",
   "publisher": "murbani",
@@ -63,5 +63,17 @@
     "io-ts-reporters": "^2.0.1",
     "minimatch": "^5.1.0",
     "short-uuid": "^4.2.2"
+  },
+  "contributes": {
+    "configuration": {
+      "title": "WebdriverIO",
+      "properties": {
+        "wdio.headless": {
+          "type": "boolean",
+          "default": true,
+          "description": "Hide browser window during tests"
+        }
+      }
+    }
   }
 }

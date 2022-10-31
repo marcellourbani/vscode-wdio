@@ -37,6 +37,7 @@ import {
 } from "./util"
 import { WdIOConfiguration } from "./wdio"
 import * as ansiRegex from "ansi-regex"
+import { runHeadless } from "./config"
 
 interface MochaTest extends WdIOTest {
   range?: Range
@@ -83,7 +84,8 @@ const runWdIOConfig = async (conf: WdIOConfiguration) => {
     const dummyfile = join(tmpDir, "wdio-wrapper.js")
     writeFileSync(dummyfile, script)
     try {
-      await runCommand(`npx wdio run ${dummyfile} --headless`, conf.folder)
+      const headless = runHeadless() ? "--headless" : ""
+      await runCommand(`npx wdio run ${dummyfile} ${headless}`, conf.folder)
     } catch (error) {
       console.log(error)
       reporterMissing(error)
@@ -124,7 +126,7 @@ const convertFile = ({ results, name }: WdIOTestFile): MochaTestFile => {
   return { name, results: { ...results, suites: msuites } }
 }
 
-export const processTest = async (
+const processTest = async (
   ctrl: TestController,
   run: TestRun,
   parent: TestItem,
@@ -145,7 +147,7 @@ export const processTest = async (
   return test
 }
 
-export const processSuite = async (
+const processSuite = async (
   ctrl: TestController,
   run: TestRun,
   parent: TestItem,
@@ -165,7 +167,7 @@ export const processSuite = async (
   return suiteTest
 }
 
-export const processFile = async (
+const processFile = async (
   ctrl: TestController,
   run: TestRun,
   parent: TestItem,
