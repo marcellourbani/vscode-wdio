@@ -12,6 +12,7 @@ import {
 } from "vscode"
 import { dirname, join } from "path"
 import {
+  getOrCreate,
   hasMessage,
   isDefined,
   removeMissing,
@@ -68,7 +69,7 @@ const detect = async () => {
   return Promise.all(configs.map(parseConfig))
 }
 
-const configs = new Map<TestItem, WdIOConfiguration>()
+const configs = new Map<string, WdIOConfiguration>()
 
 const runHandler = async (
   request: TestRunRequest,
@@ -80,7 +81,7 @@ const runHandler = async (
     run = ctrl.createTestRun(request)
     const rconfigs = [...ctrl.items]
       .map((i) => {
-        const config = configs.get(i[1])
+        const config = configs.get(i[0])
         if (config) return { item: i[1], config }
       })
       .filter(isDefined)
@@ -103,15 +104,22 @@ const runHandler = async (
     run?.end()
   }
 }
-const loadconfigurations = async (ctrl: TestController) => {
+
+export const loadconfigurations = async (ctrl: TestController) => {
   try {
     const configurations = await detect()
     for (const conf of configurations) {
-      const item = ctrl.createTestItem(conf.folder, conf.name)
-      ctrl.items.add(item)
-      configs.set(item, conf)
+      const item = getOrCreate(ctrl, ctrl.items, conf.folder, conf.name)
+      configs.set(item.id, conf)
     }
     checkjsonReporter(configurations)
+    const obsolete = [...configs.keys()].filter(
+      (id) => !configurations.find((c) => c.folder === id)
+    )
+    for (const o of obsolete) {
+      configs.delete(o)
+      ctrl.items.delete(o)
+    }
     return configurations
   } catch (error) {
     window.showErrorMessage(
@@ -122,7 +130,9 @@ const loadconfigurations = async (ctrl: TestController) => {
   }
 }
 const checkjsonReporter = (configurations: WdIOConfiguration[]) => {
-  if (configurations.find((c) => !c.hasJsonReporter))
+  if (
+    configurations.find((c) => !c.hasJsonReporter && c.framework !== "cucumber")
+  )
     window.showWarningMessage(
       "One or more folders are missing wdio-json-reporter. WDIO tests might fail running"
     )
