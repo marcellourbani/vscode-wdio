@@ -18,7 +18,6 @@
     "Other"
   ],
   "activationEvents": [
-    "workspaceContains:**/wdio.conf.js",
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
@@ -72,6 +71,11 @@
           "type": "boolean",
           "default": true,
           "description": "Hide browser window during tests"
+        },
+        "wdio.configfile": {
+          "type": "string",
+          "description": "Configuration file glob",
+          "default": "**/wdio.conf.js"
         }
       }
     }

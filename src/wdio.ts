@@ -21,6 +21,7 @@ import {
 } from "./util"
 import { packageSpec, wdIOConfigRaw } from "./types"
 import { runMochaConfiguration } from "./wdio_mocha"
+import { configFileGlob } from "./config"
 
 const readpackage = async (config: Uri) => {
   const folder = dirname(config.fsPath)
@@ -62,7 +63,8 @@ const parseConfig = async (configFile: Uri): Promise<WdIOConfiguration> => {
 }
 
 const detect = async () => {
-  const configs = await workspace.findFiles("**/wdio.conf.js")
+  const glob = configFileGlob()
+  const configs = await workspace.findFiles(glob)
   return Promise.all(configs.map(parseConfig))
 }
 
