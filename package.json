@@ -5,6 +5,7 @@
   "version": "0.0.4",
   "publisher": "murbani",
   "repository": "https://github.com/marcellourbani/vscode-wdio",
+  "icon": "images/wdio-icon.png",
   "keywords": [
     "test",
     "wdio",
@@ -75,7 +76,7 @@
         "wdio.configfile": {
           "type": "string",
           "description": "Configuration file glob",
-          "default": "**/wdio.conf.js"
+          "default": "**/wdio.conf.[jt]s"
         }
       }
     }

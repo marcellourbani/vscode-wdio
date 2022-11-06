@@ -19,10 +19,14 @@ export const runCommand = (cmd: string, cwd?: string) =>
 export const normalizePath = (s: string) =>
   sep === "/" ? s : s.replace(/\\/g, "/")
 
-export const runScript = (source: string, cwd?: string) => {
+export const runScript = (source: string, configFile: Uri, cwd?: string) => {
   const input = source.replace(/\\/g, "\\\\")
-  const res = spawnSync("node", ["-"], { input, cwd, encoding: "utf-8" })
-  return res.stdout
+  const isTS = configFile.path.match(/\.ts$/)
+  const prog = isTS ? "npx" : "node"
+  const args = isTS ? ["-y", "ts-node", "-T"] : ["-"]
+  const res = spawnSync(prog, args, { input, cwd, encoding: "utf-8" })
+  if (res.error) throw res.error
+  return res
 }
 
 export const isDefined = <T>(x: T | undefined): x is T =>
