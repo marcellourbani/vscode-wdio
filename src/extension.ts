@@ -1,8 +1,9 @@
 import { ExtensionContext } from "vscode"
-import { listenConfig } from "./config"
+import { FileWatcher, listenConfig } from "./config"
 import { getController } from "./wdio"
 
 export function activate(context: ExtensionContext) {
+  context.subscriptions.push(FileWatcher.get())
   context.subscriptions.push(getController())
   context.subscriptions.push(listenConfig())
 }

@@ -83,20 +83,24 @@ const runWdIOConfig = async (conf: WdIOConfiguration) => {
   try {
     const dummyfile = join(tmpDir, "wdio-wrapper.js")
     writeFileSync(dummyfile, script)
+    let runerr = undefined
     try {
       const headless = runHeadless() ? "--headless" : ""
       await runCommand(`npx wdio run ${dummyfile} ${headless}`, conf.folder)
     } catch (error) {
       console.log(error)
       reporterMissing(error)
+      runerr = error //wdio returns an error if any test failed, doesn't usually mean the process failed
     }
-    const files = readdirSync(tmpDir)
-      .filter((f) => f.match(/results-.*\.json/))
-      .map((name) => {
-        const raw = JSON.parse(readFileSync(join(tmpDir, name)).toString())
-        const results = validate(wdIOTestResult, raw)
-        return { name, results }
-      })
+    const rawRes = readdirSync(tmpDir).filter((f) =>
+      f.match(/results-.*\.json/)
+    )
+    if (rawRes.length === 0) throw runerr // no output detected, assume things went south
+    const files = rawRes.map((name) => {
+      const raw = JSON.parse(readFileSync(join(tmpDir, name)).toString())
+      const results = validate(wdIOTestResult, raw)
+      return { name, results }
+    })
     return files
   } finally {
     rmSync(tmpDir, { recursive: true })

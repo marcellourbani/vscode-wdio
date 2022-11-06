@@ -22,7 +22,7 @@ import {
 } from "./util"
 import { packageSpec, wdIOConfigRaw } from "./types"
 import { runMochaConfiguration } from "./wdio_mocha"
-import { configFileGlob } from "./config"
+import { configFileGlob, FileWatcher } from "./config"
 
 const readpackage = async (config: Uri) => {
   const folder = dirname(config.fsPath)
@@ -107,9 +107,16 @@ const runHandler = async (
 
 export const loadconfigurations = async (ctrl: TestController) => {
   try {
+    FileWatcher.get().setWatchers()
     const configurations = await detect()
     for (const conf of configurations) {
-      const item = getOrCreate(ctrl, ctrl.items, conf.folder, conf.name)
+      const item = getOrCreate(
+        ctrl,
+        ctrl.items,
+        conf.folder,
+        conf.name,
+        conf.configFile
+      )
       configs.set(item.id, conf)
     }
     checkjsonReporter(configurations)
@@ -123,7 +130,7 @@ export const loadconfigurations = async (ctrl: TestController) => {
     return configurations
   } catch (error) {
     window.showErrorMessage(
-      `failed to start WDIO extension:${
+      `failed load WDIO configuration:${
         hasMessage(error) ? error.message : error
       }`
     )
