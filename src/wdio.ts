@@ -10,7 +10,7 @@ import {
   window,
   workspace
 } from "vscode"
-import { dirname, join } from "path"
+import { basename, dirname, join } from "path"
 import {
   getOrCreate,
   hasMessage,
@@ -47,8 +47,15 @@ const parseConfig = async (configFile: Uri): Promise<WdIOConfiguration> => {
   const script = `const {config} = require('${configFile.fsPath}')
     const {framework,specs,exclude} = config
     console.log(JSON.stringify({framework,specs,exclude},0,1))`
-  const raw = runScript(script, folder)
-  const { framework, specs, exclude } = validate(wdIOConfigRaw, JSON.parse(raw))
+  const res = runScript(script, configFile, folder)
+  if (res.status)
+    throw new Error(
+      `Failed to parse config for ${basename(configFile.fsPath)}: ${res.stderr}`
+    )
+  const { framework, specs, exclude } = validate(
+    wdIOConfigRaw,
+    JSON.parse(res.stdout)
+  )
   const { name, dependencies, devDependencies } = await readpackage(configFile)
   const hasJsonReporter =
     "wdio-json-reporter" in { ...dependencies, ...devDependencies }

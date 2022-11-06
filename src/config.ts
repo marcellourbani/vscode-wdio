@@ -7,7 +7,7 @@ export const runHeadless = () => {
 }
 
 export const configFileGlob = (): string => {
-  return workspace.getConfiguration(ROOT).get(CFGFILE) ?? "**/wdio.conf.js"
+  return workspace.getConfiguration(ROOT).get(CFGFILE) ?? "**/wdio.conf.[jt]s"
 }
 
 export const listenConfig = () =>
