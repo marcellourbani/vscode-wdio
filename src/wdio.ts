@@ -12,6 +12,7 @@ import {
 } from "vscode"
 import { dirname, join } from "path"
 import {
+  getOrCreate,
   hasMessage,
   isDefined,
   removeMissing,
@@ -21,6 +22,7 @@ import {
 } from "./util"
 import { packageSpec, wdIOConfigRaw } from "./types"
 import { runMochaConfiguration } from "./wdio_mocha"
+import { configFileGlob, FileWatcher } from "./config"
 
 const readpackage = async (config: Uri) => {
   const folder = dirname(config.fsPath)
@@ -62,11 +64,12 @@ const parseConfig = async (configFile: Uri): Promise<WdIOConfiguration> => {
 }
 
 const detect = async () => {
-  const configs = await workspace.findFiles("**/wdio.conf.js")
+  const glob = configFileGlob()
+  const configs = await workspace.findFiles(glob)
   return Promise.all(configs.map(parseConfig))
 }
 
-const configs = new Map<TestItem, WdIOConfiguration>()
+const configs = new Map<string, WdIOConfiguration>()
 
 const runHandler = async (
   request: TestRunRequest,
@@ -78,7 +81,7 @@ const runHandler = async (
     run = ctrl.createTestRun(request)
     const rconfigs = [...ctrl.items]
       .map((i) => {
-        const config = configs.get(i[1])
+        const config = configs.get(i[0])
         if (config) return { item: i[1], config }
       })
       .filter(isDefined)
@@ -101,26 +104,42 @@ const runHandler = async (
     run?.end()
   }
 }
-const loadconfigurations = async (ctrl: TestController) => {
+
+export const loadconfigurations = async (ctrl: TestController) => {
   try {
+    FileWatcher.get().setWatchers()
     const configurations = await detect()
     for (const conf of configurations) {
-      const item = ctrl.createTestItem(conf.folder, conf.name)
-      ctrl.items.add(item)
-      configs.set(item, conf)
+      const item = getOrCreate(
+        ctrl,
+        ctrl.items,
+        conf.folder,
+        conf.name,
+        conf.configFile
+      )
+      configs.set(item.id, conf)
     }
     checkjsonReporter(configurations)
+    const obsolete = [...configs.keys()].filter(
+      (id) => !configurations.find((c) => c.folder === id)
+    )
+    for (const o of obsolete) {
+      configs.delete(o)
+      ctrl.items.delete(o)
+    }
     return configurations
   } catch (error) {
     window.showErrorMessage(
-      `failed to start WDIO extension:${
+      `failed load WDIO configuration:${
         hasMessage(error) ? error.message : error
       }`
     )
   }
 }
 const checkjsonReporter = (configurations: WdIOConfiguration[]) => {
-  if (configurations.find((c) => !c.hasJsonReporter))
+  if (
+    configurations.find((c) => !c.hasJsonReporter && c.framework !== "cucumber")
+  )
     window.showWarningMessage(
       "One or more folders are missing wdio-json-reporter. WDIO tests might fail running"
     )
