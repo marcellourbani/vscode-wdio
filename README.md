@@ -3,7 +3,7 @@
 Runs [Webdriver.IO](https://webdriver.io/) tests in vscode native test UI
 
 tested with Mocha, should also work with Jasmine
-Cucumber is not supported at the moment
+Cucumber support pretty basic (unable to map tests to feature files)
 
 ![image](https://user-images.githubusercontent.com/2453277/197976140-e049bd69-23bb-42fb-8f99-3197b64d5a88.png)
 
