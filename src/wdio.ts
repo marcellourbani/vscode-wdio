@@ -23,6 +23,7 @@ import {
 import { packageSpec, wdIOConfigRaw } from "./types"
 import { runMochaConfiguration } from "./wdio_mocha"
 import { configFileGlob, FileWatcher } from "./config"
+import { runCucumberConfiguration } from "./wdio-cucumber"
 
 const readpackage = async (config: Uri) => {
   const folder = dirname(config.fsPath)
@@ -97,12 +98,11 @@ const runHandler = async (
     removeMissing(ctrl.items, labels)
 
     for (const entry of rconfigs)
-      if (entry.config.framework === "cucumber") {
-        window.showErrorMessage("Cucumber tests not supported yet")
+      if (cancellation.isCancellationRequested) {
         runonTestTree(entry.item, (k) => run.skipped(k))
-      } else if (cancellation.isCancellationRequested)
-        runonTestTree(entry.item, (k) => run.skipped(k))
-      else await runMochaConfiguration(ctrl, entry.config!, entry.item, run)
+      } else if (entry.config.framework === "cucumber")
+        await runCucumberConfiguration(ctrl, entry.config, entry.item, run)
+      else await runMochaConfiguration(ctrl, entry.config, entry.item, run)
   } catch (error) {
     //@ts-ignore
     window.showErrorMessage(`${error?.message}`)

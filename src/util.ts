@@ -74,6 +74,13 @@ export const removeMissing = (
   })
 }
 
+export const removeMissingId = (entries: TestItemCollection, ids: string[]) => {
+  entries.forEach((item) => {
+    const label = ids.find((l) => l === item.id)
+    if (!label && label !== "") entries.delete(item.id)
+  })
+}
+
 export const removeMissingTests = (
   entries: TestItemCollection,
   tests: TestItem[]

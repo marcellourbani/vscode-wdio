@@ -75,7 +75,6 @@ const runWdIOConfig = async (conf: WdIOConfiguration) => {
   const tmpDir = mkdtempSync(join(tmpdir(), folder))
   const modname = normalizePath(conf.configFile.fsPath.replace(/\.js$/, ""))
   const script = `const {config} = require( "${modname}")
-      // config.mochaOpts = {...config.mochaOpts,dryRun:true}
       config.reporters = [['json',{ outputDir: '${normalizePath(
         tmpDir
       )}' ,outputFileFormat: opts => \`results-\${opts.cid}.json\`}]],

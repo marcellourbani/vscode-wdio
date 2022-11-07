@@ -46,3 +46,48 @@ export interface WdIOTestFile {
   name: string
   results: WdIOTestResult
 }
+
+const cucumberResult = t.intersection([
+  t.type({
+    status: t.string,
+    duration: t.number
+  }),
+  t.partial({
+    error_message: t.string
+  })
+])
+
+const cucumberStep = t.type({
+  keyword: t.string,
+  name: t.string,
+  result: cucumberResult,
+  line: t.number
+})
+
+const cucumberElement = t.type({
+  keyword: t.string,
+  type: t.string,
+  description: t.string,
+  name: t.string,
+  id: t.string,
+  line: t.number,
+  steps: t.array(cucumberStep)
+})
+
+export const cucumberFeature = t.type({
+  keyword: t.string,
+  type: t.string,
+  description: t.string,
+  line: t.number,
+  name: t.string,
+  uri: t.string,
+  id: t.string,
+  elements: t.array(cucumberElement)
+})
+
+export const cucumberFile = t.array(cucumberFeature)
+export type CucumberResult = t.TypeOf<typeof cucumberResult>
+export type CucumberStep = t.TypeOf<typeof cucumberStep>
+export type CucumberElement = t.TypeOf<typeof cucumberElement>
+export type CucumberFeature = t.TypeOf<typeof cucumberFeature>
+export type CucumberFile = CucumberFeature[]
