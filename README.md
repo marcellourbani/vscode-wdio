@@ -10,3 +10,7 @@ Cucumber support pretty basic (unable to map tests to feature files)
 ## Requirements
 
 Assumes the WDIO JSON reporter [wdio-json-reporter](https://www.npmjs.com/package/wdio-json-reporter) is installed in the target project
+
+## Bugs
+
+Please report bugs on the [github repository](https://github.com/marcellourbani/vscode-wdio/issues)

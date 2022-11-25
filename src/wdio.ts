@@ -46,7 +46,7 @@ export interface WdIOConfiguration {
 const parseConfig = async (configFile: Uri): Promise<WdIOConfiguration> => {
   const folder = dirname(configFile.fsPath)
   const script = `const {config} = require('${configFile.fsPath}')
-    const {framework,specs,exclude} = config
+    const {framework,specs,exclude=[]} = config
     console.log(JSON.stringify({framework,specs,exclude},0,1))`
   const res = runScript(script, configFile, folder)
   if (res.status)
