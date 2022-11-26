@@ -9,7 +9,7 @@ export const wdIOConfigRaw = t.type({
 })
 
 export const packageSpec = t.type({
-  name: t.string,
+  name: nullable(t.string), // should be mandatory, but not enforced
   devDependencies: nullable(t.record(t.string, t.string)),
   dependencies: nullable(t.record(t.string, t.string))
 })
