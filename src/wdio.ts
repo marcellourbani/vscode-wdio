@@ -57,7 +57,11 @@ const parseConfig = async (configFile: Uri): Promise<WdIOConfiguration> => {
     wdIOConfigRaw,
     JSON.parse(res.stdout)
   )
-  const { name, dependencies, devDependencies } = await readpackage(configFile)
+  const {
+    name = basename(folder),
+    dependencies,
+    devDependencies
+  } = await readpackage(configFile)
   const hasJsonReporter =
     "wdio-json-reporter" in { ...dependencies, ...devDependencies }
   return {
