@@ -38,7 +38,7 @@ const reporterMissing = (e: unknown) => {
   if (!hasStderr(e)) return
   if (e.stderr.match(/Error: Couldn't find plugin "json" reporter/))
     throw new Error(
-      "WDIO Json reporter not installed please add wdio-json-reporter to the relevant project: npm i --save-dev wdio-json-reporter"
+      "WDIO Json reporter not installed please add wdio-json-reporter to the relevant project: npm i --save-dev @seeplusplus/wdio-json-reporter"
     )
   const badversion = e.stderr.match(
     /ERROR webdriver: R.*This version of ChromeDriver only supports Chrome version\s*([\d]+)/

@@ -49,6 +49,9 @@ export const hasMessage = (x: unknown): x is { message: string } =>
   "message" in x &&
   typeof (x as any).message === "string"
 
+export const errString = (err: unknown) =>
+  `${hasMessage(err) ? err.message : err}`
+
 export const getOrCreate = (
   ctrl: TestController,
   c: TestItemCollection,

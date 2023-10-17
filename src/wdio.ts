@@ -1,7 +1,6 @@
 import {
   CancellationToken,
   TestController,
-  TestItem,
   TestRun,
   TestRunProfileKind,
   TestRunRequest,
@@ -12,18 +11,20 @@ import {
 } from "vscode"
 import { basename, dirname, join } from "path"
 import {
+  errString,
   getOrCreate,
-  hasMessage,
   isDefined,
   removeMissing,
   runonTestTree,
   runScript,
   validate
 } from "./util"
+import { ConfigParser } from "@wdio/config"
 import { packageSpec, wdIOConfigRaw } from "./types"
 import { runMochaConfiguration } from "./wdio_mocha"
 import { configFileGlob, FileWatcher } from "./config"
 import { runCucumberConfiguration } from "./wdio-cucumber"
+import { log } from "./logger"
 
 const readpackage = async (config: Uri) => {
   const folder = dirname(config.fsPath)
@@ -44,15 +45,26 @@ export interface WdIOConfiguration {
 }
 
 const parseConfig = async (configFile: Uri): Promise<WdIOConfiguration> => {
+  log(`Trying to parse config file ${configFile.fsPath}`)
+  try {
+    const parser = new ConfigParser(configFile.fsPath)
+    parser.initialize()
+    const config = parser.getConfig()
+    log(config)
+  } catch (error) {
+    log(errString(error))
+  }
   const folder = dirname(configFile.fsPath)
   const script = `const {config} = require('${configFile.fsPath}')
     const {framework,specs,exclude=[]} = config
     console.log(JSON.stringify({framework,specs,exclude},0,1))`
   const res = runScript(script, configFile, folder)
-  if (res.status)
+  if (res.status) {
+    log(`Failed to parse config file ${configFile.fsPath}`, res.stderr)
     throw new Error(
       `Failed to parse config for ${basename(configFile.fsPath)}: ${res.stderr}`
     )
+  }
   const { framework, specs, exclude } = validate(
     wdIOConfigRaw,
     JSON.parse(res.stdout)
@@ -62,8 +74,10 @@ const parseConfig = async (configFile: Uri): Promise<WdIOConfiguration> => {
     dependencies,
     devDependencies
   } = await readpackage(configFile)
+  const alldeps = { ...dependencies, ...devDependencies }
   const hasJsonReporter =
-    "wdio-json-reporter" in { ...dependencies, ...devDependencies }
+    "wdio-json-reporter" in alldeps ||
+    "@seeplusplus/wdio-json-reporter" in alldeps
   return {
     configFile,
     name,
@@ -140,11 +154,9 @@ export const loadconfigurations = async (ctrl: TestController) => {
     }
     return configurations
   } catch (error) {
-    window.showErrorMessage(
-      `failed load WDIO configuration:${
-        hasMessage(error) ? error.message : error
-      }`
-    )
+    const message = `failed to load WDIO configuration:${errString(error)}`
+    log(message)
+    window.showErrorMessage(message)
   }
 }
 const checkjsonReporter = (configurations: WdIOConfiguration[]) => {
