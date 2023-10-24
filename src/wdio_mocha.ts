@@ -36,7 +36,7 @@ import {
   validate
 } from "./util"
 import { WdIOConfiguration } from "./wdio"
-import * as ansiRegex from "ansi-regex"
+import ansiRegex from "ansi-regex"
 import { runHeadless } from "./config"
 
 interface MochaTest extends WdIOTest {

@@ -1,5 +1,4 @@
-import { isLeft } from "fp-ts/Either"
-import { Decoder } from "io-ts"
+import * as t from "io-ts"
 import { exec, spawnSync } from "child_process"
 
 import reporter from "io-ts-reporters"
@@ -7,9 +6,10 @@ import { promisify } from "util"
 import { TestController, TestItem, TestItemCollection, Uri } from "vscode"
 import { sep } from "path"
 
-export const validate = <A>(d: Decoder<unknown, A>, x: unknown): A => {
+export const validate = <A>(d: t.Decoder<unknown, A>, x: unknown): A => {
   const decoded = d.decode(x)
-  if (isLeft(decoded)) throw new Error(reporter.report(decoded).join("\n"))
+  if (decoded._tag === "Left")
+    throw new Error(reporter.report(decoded).join("\n"))
   return decoded.right
 }
 

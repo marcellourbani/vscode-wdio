@@ -19,12 +19,12 @@ import {
   runScript,
   validate
 } from "./util"
-import { ConfigParser } from "@wdio/config"
 import { packageSpec, wdIOConfigRaw } from "./types"
 import { runMochaConfiguration } from "./wdio_mocha"
 import { configFileGlob, FileWatcher } from "./config"
 import { runCucumberConfiguration } from "./wdio-cucumber"
 import { log } from "./logger"
+const { ConfigParser } = require("@wdio/config")
 
 const readpackage = async (config: Uri) => {
   const folder = dirname(config.fsPath)
